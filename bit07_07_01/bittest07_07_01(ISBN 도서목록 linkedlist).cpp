@@ -14,8 +14,6 @@ typedef struct _ISBN
 	char * Title;
 	char * Company;
 	char * Price;
-	int WriterNum;
-	int TableNum;
 	struct _sData * pWriter;
 	struct _sData * pTable;
 	struct _ISBN * pNext;
@@ -27,6 +25,21 @@ typedef struct _sSearch
 	_ISBN * pPre;
 	struct _sSearch * pNext;
 }sSearch;
+void InsertData(sData* pNode, sData* *pTop){
+	pNode->pNext = NULL;
+	if (*pTop == NULL)
+	{
+		*pTop = pNode;
+	}
+	else{
+		sData* pStart = *pTop;
+		while (pStart->pNext != NULL)//연결
+		{
+			pStart = pStart->pNext;
+		}
+		pStart->pNext = pNode;
+	}
+}
 void NewBookData(char* * pData, char* PrintMessage){
 	char temp[1024];
 	printf("%s",PrintMessage);
@@ -35,35 +48,17 @@ void NewBookData(char* * pData, char* PrintMessage){
 	*pData = (char *)malloc(strlen(temp) + 1);
 	strcpy(*pData, temp);
 }
-int NewBookDataWiter(char* *pData, char* PrintMessage){
+int NewBookDataString(sData* *pWTop, char* PrintMessage){
 	char temp[1024];
-	for (int iCurrentBookNum = 0; iCurrentBookNum < 5; iCurrentBookNum++){
-		printf(" %d. %s",iCurrentBookNum+1, PrintMessage);
-		gets(temp);
-		fflush(stdin);
-		if (temp[0]=='\0'){
-			return iCurrentBookNum;
-		}
-		*pData = (char *)malloc(strlen(temp) + 1);
-		strcpy(*pData, temp);
-		memset(temp,NULL,1024);
+	printf("%s", PrintMessage);
+	gets(temp);
+	fflush(stdin);
+	if (temp[0] == '\0'){
+		return 1;
 	}
-	return 5;
-}
-int NewBookDataTable(char* *pData, char* PrintMessage){
-	char temp[1024];
-	for (int iCurrentBookNum = 0; iCurrentBookNum < 20; iCurrentBookNum++){
-		printf(" %d. %s", iCurrentBookNum + 1, PrintMessage);
-		gets(temp);
-		fflush(stdin);
-		if (temp[0] == '\0'){
-			return iCurrentBookNum;
-		}
-		*pData = (char *)malloc(strlen(temp) + 1);
-		strcpy(*pData, temp);
-		memset(temp, NULL, 1024);
-	}
-	return 20;
+	(*pWTop)->pData = (char *)malloc(strlen(temp) + 1);
+	strcpy((*pWTop)->pData, temp);
+	return 0;
 }
 /*
 void KillData(ISBN * BookArray){
@@ -79,12 +74,26 @@ void KillData(ISBN * BookArray){
 }*/
 
 void InputBookData(ISBN* *pNode){ 
-	NewBookData(&(*pNode)->Title, "제목 : ");
-	(*pNode)->WriterNum = NewBookDataWiter(&(*pNode)->pWriter->pData, "저자 : ");
-	NewBookData(&(*pNode)->Company, "출판사 :");
-	NewBookData(&(*pNode)->Price, "가격 :");
-	(*pNode)->TableNum = NewBookDataTable(&(*pNode)->pTable->pData, "목차 :");
+	ISBN * Input = *pNode;
+	Input->pWriter = NULL;
+	Input->pTable = NULL;
+	NewBookData(&Input->Title, "제목 : ");
+	while (1){
+		sData * pWStart = (sData *)malloc(sizeof(sData));
+		if (NewBookDataString(&pWStart, "저자 : ") == 1)
+			break;
+		InsertData(pWStart, &(Input)->pWriter);
+	}
+	NewBookData(&Input->Company, "출판사 :");
+	NewBookData(&Input->Price, "가격 :");
+	while (1){
+		sData * pTStart = (sData *)malloc(sizeof(sData));
+		if (NewBookDataString(&pTStart, "목차 : ") == 1)
+			break;
+		InsertData(pTStart, &(Input)->pTable);
+	}
 }
+
 void Insert(ISBN* pNode, ISBN* *pTop){
 	pNode->pNext = NULL;
 	if (*pTop == NULL)
@@ -100,30 +109,32 @@ void Insert(ISBN* pNode, ISBN* *pTop){
 		pStart->pNext = pNode;
 	}
 }
+
 void MultiInsert(sSearch* pNode, sSearch* *pTop){
 	pNode->pNext = *pTop;
 	*pTop = pNode;
 }
 void AddBook(ISBN * *pTop ){
 	ISBN * pNode = (ISBN *)malloc(sizeof(ISBN));
-	pNode->pWriter = (struct _sData *)malloc(sizeof(_sData));
-	pNode->pTable = (struct _sData *)malloc(sizeof(_sData));
 	InputBookData(&pNode);
 	Insert(pNode,pTop);
 }
+void PrintData(sData * pStart,char* message){
+	sData * pPrintData = pStart;
+	while (pPrintData != NULL)
+	{
+		printf("\n%s",message);
+		printf("%s", pPrintData->pData);
+		pPrintData = pPrintData->pNext;
+	}
+}
 void Print(ISBN * pStart){
-	printf("도서 명 : %s\n", pStart->Title);
-	printf("저자 :\n");
-	for (int i= 0; i < pStart->WriterNum; i++){
-		printf("%d.%s ", i+1, pStart->pWriter->pData);
-	}
+	printf("도서 명 : %s", pStart->Title);
+	PrintData(pStart->pWriter,"저자 :");
 	printf("\n출판사 : %s\n", pStart->Company);
-	printf("가격 : %s\n", pStart->Price);
-	printf("목차 :\n");
-	for (int i = 0; i < pStart->TableNum; i++){
-		printf(" %d. %s\n", i+1, pStart->pTable->pData);
-	}
-	printf("\n");
+	printf("가격 : %s", pStart->Price);
+	PrintData(pStart->pTable, "목록 :");
+	printf("\n\n");
 }
 void PrintBookList(ISBN* pTop){
 	ISBN * pStart = pTop;
@@ -150,50 +161,43 @@ int SSearch(ISBN* pStart, char* SearchBookdata){
 int MSearchW(ISBN* pStart,sSearch* *pCTop, char* SearchBookdata){
 	//Bookdata 저자 수 or 목차 수
 	int count = 0;
-	while (pStart != NULL){
-		while (pStart->pWriter !=NULL){
-			if (strstr(pStart->pWriter->pData, SearchBookdata) != 0){
-				sSearch* pCopy = (sSearch*)malloc(sizeof(sSearch));
-				pCopy->pSData = pStart;
-				pCopy->pNext = NULL;
-				pCopy->pPre = pStart->pPre;
-				MultiInsert(pCopy, pCTop);
-				count++;
-			}
-			pStart->pWriter = pStart->pWriter->pNext;
+	sData * pPrintData = pStart->pWriter;
+	if (pPrintData == NULL)
+	{
+		return 1;
+	}
+	while (pPrintData != NULL){
+		if (strstr(pPrintData->pData, SearchBookdata) != 0){
+			sSearch* pCopy = (sSearch*)malloc(sizeof(sSearch));
+			pCopy->pSData = pStart;
+			pCopy->pNext = NULL;
+			pCopy->pPre = pStart->pPre;
+			MultiInsert(pCopy, pCTop);
+			return  0;
 		}
-		pStart = pStart->pNext;
+		pPrintData = pPrintData->pNext;
 	}
-	if (count == 0){
-		return 0;
-	}
-	else{
 		return 2;
-	}
 }
 int MSearchT(ISBN* pStart, sSearch* *pCTop, char* SearchBookdata){
 	//Bookdata 저자 수 or 목차 수
-	int count = 0;
-	while (pStart != NULL){
-		while (pStart->pWriter != NULL){
-			if (strcmp(pStart->pWriter->pData, SearchBookdata) == 0){
-				sSearch* pCopy = (sSearch*)malloc(sizeof(sSearch));
-				pCopy->pSData = pStart;
-				pCopy->pNext = NULL;
-				pCopy->pPre = pStart->pPre;
-				MultiInsert(pCopy, pCTop);
-				count++;
-			}
-			pStart->pWriter = pStart->pWriter->pNext;
+	sData * pPrintData = pStart->pTable;
+	if (pPrintData == NULL)
+	{
+		return 1;
+	}
+	while (pPrintData != NULL){
+		if (strcmp(pPrintData->pData, SearchBookdata) == 0){
+			sSearch* pCopy = (sSearch*)malloc(sizeof(sSearch));
+			pCopy->pSData = pStart;
+			pCopy->pNext = NULL;
+			pCopy->pPre = pStart->pPre;
+			MultiInsert(pCopy, pCTop);
+			return  0;
 		}
-		pStart = pStart->pNext;
+		pPrintData = pPrintData->pNext;
 	}
-	if (count == 0){
-		return 0;
-	}
-	else{
 		return 2;
-	}
 }
 void SearchBook(ISBN * pTop,  char* *SearchMsg){
 	char Searchtype = '1';	//찾기할 방법 단일찾기 다중찾기
@@ -222,27 +226,35 @@ void SearchBook(ISBN * pTop,  char* *SearchMsg){
 			printf("2. 저자검색\n 검색하고 싶은 저자 :");
 			gets(SearchBookdata);
 			fflush(stdin);
-			ReturnSearch = MSearchW(pStart,&pCTop, SearchBookdata);
-			if (ReturnSearch == 0){
-				while (pCTop !=NULL){
-					Print(pCTop->pSData);
-					pCTop = pCTop->pNext;
+			while (pStart != NULL){
+				ReturnSearch = MSearchW(pStart, &pCTop, SearchBookdata);
+				if (ReturnSearch == 0){
+					while (pCTop != NULL){
+						Print(pCTop->pSData);
+						pCTop = pCTop->pNext;
+					}
 				}
+				pStart = pStart->pNext;
 			}
 			Searchtype = '0';
+			pCTop = NULL;
 			break;
 		case '3':
 			printf("3. 목차검색\n 검색하고 싶은 목차 :");
 			gets(SearchBookdata);
 			fflush(stdin);
-			ReturnSearch = MSearchT(pStart,&pCTop ,SearchBookdata);
-			if (ReturnSearch == 0){
-				while (pCTop != NULL){ 
-					Print(pCTop->pSData);
-					pCTop = pCTop->pNext;
+			while (pStart != NULL){
+				ReturnSearch = MSearchT(pStart, &pCTop, SearchBookdata);
+				if (ReturnSearch == 0){
+					while (pCTop != NULL){
+						Print(pCTop->pSData);
+						pCTop = pCTop->pNext;
+					}
 				}
+				pStart = pStart->pNext;
 			}
 			Searchtype = '0';
+			pCTop = NULL;
 			break;
 		default:
 			break;
@@ -381,7 +393,7 @@ void FileScan(ISBN* BookArray, int *TotalBook, int *BookNum){
 	fclose(fp);
 }*/
 void main(){
-	char * SearchMsg[] = { "찾기성공", "삭제 등록된 데이터가 없습니다.", "찾으려는 데이터가 존재하지 않습니다." };
+	char * SearchMsg[] = { "찾기성공", "등록된 데이터가 없습니다.", "찾으려는 데이터가 존재하지 않습니다." };
 	char * ChangeMsg[] = { "수정성공", "등록된 데이터가 없습니다.", "찾으려는 데이터가 존재하지 않습니다." };
 	char * DeleteMsg[] = { "삭제성공", "삭제 등록된 데이터가 없습니다.", "찾으려는 데이터가 존재하지 않습니다." };
 	ISBN * pTop=NULL;
